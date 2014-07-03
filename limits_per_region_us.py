@@ -65,7 +65,7 @@ ctx.set_credentials(args.username, password=key)
 ctx.authenticate()
 
 #Printing formatted output
-output = PrettyTable(["Region", "Compute Ram", "Compute Instance", "Networks", "LBaaS", "CBS Ram", "CBS Volume"])
+output = PrettyTable(["Region", "Compute Ram", "Compute Instance", "Networks", "LBaaS", "CBS Disk", "CBS Volume"])
 #x.align["Region"] = "l" # Left align city names
 output.padding_width = 1
 
