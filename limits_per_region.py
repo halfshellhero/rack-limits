@@ -89,7 +89,7 @@ cbs_volume_usage = get_cbs_usage(region)[1]
 clb_usage = get_clb_usage(region)
 
 #Printing formatted output
-x = PrettyTable(["Region", "Compute Ram", "Compute Instance", "Networks", "LBaaS", "CBS Ram", "CBS Volume"])
+x = PrettyTable(["Region", "Compute Ram", "Compute Instance", "Networks", "LBaaS", "CBS Disk", "CBS Volume"])
 #x.align["Region"] = "l" # Left align city names
 x.padding_width = 1
 x.add_row([region, str(ram_usage) + 'MB/' + str(ram_quota) + 'MB ' + str(int((ram_usage / float(ram_quota)) * 100)) + '%', \
