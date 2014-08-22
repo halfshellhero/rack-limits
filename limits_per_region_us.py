@@ -47,30 +47,44 @@ def get_clb_limits(region):
     limit_req = requests.get(url, headers={'X-Auth-Token': token })
     return limit_req.json()
 
-def get_mon_alarm_usage(username, key):
-    """ Returns the number (integer) of alarms for the account """
-    Cls = get_driver(Provider.RACKSPACE)
-    driver = Cls(username, key)
-    overview = driver.ex_views_overview()
-    total_alarms = 0
-    x = 0
-    while x < len(overview):
-        total_alarms = total_alarms + len(overview[x]['alarms'])
-        x = x + 1
-    return total_alarms
+#def get_mon_alarm_usage(username, key):
+#    """ Returns the number (integer) of alarms for the account """
+#    Cls = get_driver(Provider.RACKSPACE)
+#    driver = Cls(username, key)
+#    overview = driver.ex_views_overview()
+#    total_alarms = 0
+#    x = 0
+#    while x < len(overview):
+#        total_alarms = total_alarms + len(overview[x]['alarms'])
+#        x = x + 1
+#    return total_alarms
+#
+#
+#def get_mon_check_usage(username, key):
+#    """ Returns the number (integer) of checks for the account """
+#    Cls = get_driver(Provider.RACKSPACE)
+#    driver = Cls(username, key)
+#    overview = driver.ex_views_overview()
+#    total_checks = 0
+#    x = 0
+#    while x < len(overview):
+#        total_checks = total_checks + len(overview[x]['checks'])
+#        x = x + 1
+#    return total_checks
 
-
-def get_mon_check_usage(username, key):
-    """ Returns the number (integer) of checks for the account """
+def get_mon_usage(username, key):
+    """ Returns the number (integer) of checks and alarms for the account """
     Cls = get_driver(Provider.RACKSPACE)
     driver = Cls(username, key)
     overview = driver.ex_views_overview()
     total_checks = 0
+    total_alarms = 0
     x = 0
     while x < len(overview):
+        total_alarms = total_alarms + len(overview[x]['alarms'])
         total_checks = total_checks + len(overview[x]['checks'])
         x = x + 1
-    return total_checks
+    return total_checks,total_alarms
 
 def get_mon_limits(username, key):
     """ Obtains absolute limits for alarms and checks """
@@ -111,20 +125,24 @@ output = PrettyTable(["Region", "Compute Ram (GB)", "Compute Instance", "Network
 output.padding_width = 1
 
 region_list = ['DFW', 'IAD', 'ORD', 'SYD', 'HKG']
+cbs_quota = {'DFW': 35840, 'IAD': 46080, 'ORD': 35840, 'SYD': 10240, 'HKG': 10240, 'LON': 25600}
 count = 0
 
 while count < len(region_list):
     #Obtaining and setting up vars for absolute limits
     compute_limits = get_compute_limits(region_list[count])
-    cbs_limits = get_cbs_limits(region_list[count])
+#    cbs_limits = get_cbs_limits(region_list[count])
     clb_limits = get_clb_limits(region_list[count])
     
     ram_quota = compute_limits['absolute']['maxTotalRAMSize']
     instance_quota = compute_limits['absolute']['maxTotalInstances']
     networks_quota = compute_limits['absolute']['maxTotalPrivateNetworks']
     
-    cbs_disk_quota =  cbs_limits['limits']['absolute']['maxTotalVolumeGigabytes']
-    cbs_volume_quota =  cbs_limits['limits']['absolute']['maxTotalVolumes']
+#    cbs_disk_quota =  cbs_limits['limits']['absolute']['maxTotalVolumeGigabytes']
+    cbs_disk_quota = cbs_quota[region_list[count]] 
+
+#    this isn't a thing anymore. i can likely remove this function moving forward
+#    cbs_volume_quota =  cbs_limits['limits']['absolute']['maxTotalVolumes']
     
     clb_quota = clb_limits['absolute'][1]['value']
 
@@ -136,14 +154,16 @@ while count < len(region_list):
     ram_usage = compute_limits['absolute']['totalRAMUsed']
     instance_usage = compute_limits['absolute']['totalInstancesUsed']
     networks_usage = compute_limits['absolute']['totalPrivateNetworksUsed']
-    
-    cbs_disk_usage = get_cbs_usage(region_list[count])[0]
-    cbs_volume_usage = get_cbs_usage(region_list[count])[1]
+   
+    cbs_usage = get_cbs_usage(region_list[count]) 
+    cbs_disk_usage = cbs_usage[0]
+    cbs_volume_usage = cbs_usage[1]
     
     clb_usage = get_clb_usage(region_list[count])
 
-    maas_alarms = get_mon_alarm_usage(args.username, key)
-    maas_checks = get_mon_check_usage(args.username, key)
+    maas_usage = get_mon_usage(args.username, key)
+    maas_checks = maas_usage[0]
+    maas_alarms = maas_usage[1]
 
     output.add_row([region_list[count], str(ram_usage/1024) + '/' + \
     str(ram_quota/1024) + ' ' + percentage(ram_usage, ram_quota), \
@@ -153,8 +173,7 @@ while count < len(region_list):
     networks_quota), str(clb_usage) + '/' + str(clb_quota) + ' ' + \
     percentage(clb_usage, clb_quota), str(cbs_disk_usage) + '/' + \
     str(cbs_disk_quota) + ' ' + percentage(cbs_disk_usage, cbs_disk_quota)\
-    , str(cbs_volume_usage) + '/' + str(cbs_volume_quota) + ' ' + \
-    percentage(cbs_volume_usage, cbs_volume_quota)])
+    , str(cbs_volume_usage)])
 
     count = count + 1
 
