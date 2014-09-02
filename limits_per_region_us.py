@@ -34,10 +34,24 @@ def get_cbs_usage(region):
     return total_disk,total_volumes
 
 def get_clb_usage(region):
-    """ Returns the total usage for LBaaS in desired region """
+    """ Returns a list of all LBaaS instances in desired region """
     clb = eval("%s" % 'ctx.' + region + '.load_balancer.client')
+    more = True
     all_clbs = clb.list()
-    return len(all_clbs)
+    last_lb = all_clbs.pop()
+    while (more is True):
+        incoming = clb.list(marker=last_lb.id)
+        x = 0
+        while x < len(incoming):
+            all_clbs.append(incoming[x])
+            x = x + 1
+        if len(incoming) > 1:
+            last_lb = all_clbs.pop()
+        else:
+            more = False
+    return all_clbs
+        
+        
 
 def get_clb_limits(region):
     """ Returns a dictionary containing the absolute limits in desired region """
@@ -146,9 +160,6 @@ while count < len(region_list):
     
     clb_quota = clb_limits['absolute'][1]['value']
 
-    maas_quota = get_mon_limits(args.username, key)
-    maas_check_quota = maas_quota['resource']['checks']
-    maas_alarm_quota = maas_quota['resource']['alarms']
     
     #Obtaining and setting up vars for current usage
     ram_usage = compute_limits['absolute']['totalRAMUsed']
@@ -159,11 +170,7 @@ while count < len(region_list):
     cbs_disk_usage = cbs_usage[0]
     cbs_volume_usage = cbs_usage[1]
     
-    clb_usage = get_clb_usage(region_list[count])
-
-    maas_usage = get_mon_usage(args.username, key)
-    maas_checks = maas_usage[0]
-    maas_alarms = maas_usage[1]
+    clb_usage = len(get_clb_usage(region_list[count]))
 
     output.add_row([region_list[count], str(ram_usage/1024) + '/' + \
     str(ram_quota/1024) + ' ' + percentage(ram_usage, ram_quota), \
@@ -176,6 +183,15 @@ while count < len(region_list):
     , str(cbs_volume_usage)])
 
     count = count + 1
+
+
+maas_quota = get_mon_limits(args.username, key)
+maas_check_quota = maas_quota['resource']['checks']
+maas_alarm_quota = maas_quota['resource']['alarms']
+
+maas_usage = get_mon_usage(args.username, key)
+maas_checks = maas_usage[0]
+maas_alarms = maas_usage[1]
 
 output.add_column("MaaS Alarms",["","",str(maas_alarms) + '/' + str(maas_alarm_quota) + ' ' + percentage(maas_alarms, maas_alarm_quota),"",""])
 output.add_column("MaaS Checks",["","",str(maas_checks) + '/' + str(maas_check_quota) + ' ' + percentage(maas_checks, maas_check_quota),"",""])
