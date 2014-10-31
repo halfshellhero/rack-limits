@@ -139,7 +139,7 @@ output = PrettyTable(["Region", "Compute Ram (GB)", "Compute Instance", "Network
 output.padding_width = 1
 
 region_list = ['DFW', 'IAD', 'ORD', 'SYD', 'HKG']
-cbs_quota = {'DFW': 35840, 'IAD': 46080, 'ORD': 35840, 'SYD': 10240, 'HKG': 10240, 'LON': 25600}
+cbs_quota = {'DFW': 112000, 'IAD': 81920, 'ORD': 71680, 'SYD': 10240, 'HKG': 10240, 'LON': 40960}
 count = 0
 
 while count < len(region_list):
