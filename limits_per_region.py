@@ -17,9 +17,11 @@ def get_compute_limits(region):
 
 def get_cbs_limits(region):
     """ Returns a dictionary containing the absolute limits in desired region """
-    cbs = eval("%s" % 'ctx.' + region + '.volume.client')
-    limits_dict = cbs.get_limits()
-    return limits_dict
+    headers = {'Content-Type': 'application/json'}
+    token = ctx.auth_token
+    url = 'https://' + region.lower() + '.blockstorage.api.rackspacecloud.com/v1/' + args.account + '/os-quota-sets/' + args.account
+    limit_req = requests.get(url, headers={'X-Auth-Token': token })
+    return limit_req.json()
 
 def get_cbs_usage(region):
     """ Returns the total usage for CBS in desired region """
@@ -34,10 +36,22 @@ def get_cbs_usage(region):
     return total_ram,total_volumes
 
 def get_clb_usage(region):
-    """ Returns the total usage for LBaaS in desired region """
+    """ Returns a list of all LBaaS instances in desired region """
     clb = eval("%s" % 'ctx.' + region + '.load_balancer.client')
+    more = True
     all_clbs = clb.list()
-    return len(all_clbs)
+    last_lb = all_clbs.pop()
+    while (more is True):
+        incoming = clb.list(marker=last_lb.id)
+        x = 0
+        while x < len(incoming):
+            all_clbs.append(incoming[x])
+            x = x + 1
+        if len(incoming) > 1:
+            last_lb = all_clbs.pop()
+        else:
+            more = False
+    return all_clbs
 
 def get_clb_limits(region):
     """ Returns a dictionary containing the absolute limits in desired region """
@@ -101,8 +115,7 @@ ram_quota = compute_limits['absolute']['maxTotalRAMSize']
 instance_quota = compute_limits['absolute']['maxTotalInstances']
 networks_quota = compute_limits['absolute']['maxTotalPrivateNetworks']
 
-cbs_ram_quota =  cbs_limits['limits']['absolute']['maxTotalVolumeGigabytes']
-cbs_volume_quota =  cbs_limits['limits']['absolute']['maxTotalVolumes']
+cbs_disk_quota =  cbs_limits['quota_set']['gigabytes_SSD']
 
 clb_quota = clb_limits['absolute'][1]['value']
 
@@ -115,10 +128,10 @@ ram_usage = compute_limits['absolute']['totalRAMUsed']
 instance_usage = compute_limits['absolute']['totalInstancesUsed']
 networks_usage = compute_limits['absolute']['totalPrivateNetworksUsed']
 
-cbs_ram_usage = get_cbs_usage(region)[0]
+cbs_disk_usage = get_cbs_usage(region)[0]
 cbs_volume_usage = get_cbs_usage(region)[1]
 
-clb_usage = get_clb_usage(region)
+clb_usage = len(get_clb_usage(region))
 
 maas_usage = get_mon_usage(args.username, key)
 maas_checks = maas_usage[0]
@@ -126,16 +139,14 @@ maas_alarms = maas_usage[1]
 
 #Printing formatted output
 x = PrettyTable(["Region", "Compute Ram", "Compute Instance", "Networks", "LBaaS", "CBS Disk", "CBS Volume", "MaaS Alarms", "MaaS Checks"])
-#x.align["Region"] = "l" # Left align city names
 x.padding_width = 1
-x.add_row([region, str(ram_usage) + 'MB/' + str(ram_quota) + 'MB ' + str(int((ram_usage / float(ram_quota)) * 100)) + '%', \
-          str(instance_usage) + '/' + str(instance_quota) + ' ' + str(int((instance_usage / float(instance_quota)) * 100)) + '%', \
-          str(networks_usage) + '/' + str(networks_quota) + ' ' + str(int((networks_usage / float(networks_quota)) * 100)) + '%', \
-          str(clb_usage) + '/' + str(clb_quota) + ' ' + str(int((clb_usage / float(clb_quota)) * 100)) + '%', \
-          str(cbs_ram_usage) + '/' + str(cbs_ram_quota) + ' ' + str(int((cbs_ram_usage / float(cbs_ram_quota)) * 100)) + '%', \
-          str(cbs_volume_usage) + '/' + str(cbs_volume_quota) + ' ' + str(int((cbs_volume_usage / float(cbs_volume_quota)) * 100)) + '%', \
-          str(maas_alarms) + '/' + str(maas_alarm_quota) + ' ' + percentage(maas_alarms, maas_alarm_quota), str(maas_checks) + '/' + \
-          str(maas_check_quota) + ' ' + percentage(maas_checks, maas_check_quota)])
+x.add_row([region, str(ram_usage/1024) + '/' + str(ram_quota/1024) + ' ' + percentage(ram_usage, ram_quota), \
+          str(instance_usage) + '/' + str(instance_quota) + ' ' + percentage(instance_usage, instance_quota), \
+          str(networks_usage) + '/' + str(networks_quota) + ' ' + percentage(networks_usage,networks_quota), \
+          str(clb_usage) + '/' + str(clb_quota) + ' ' + percentage(clb_usage, clb_quota), \
+          str(cbs_disk_usage) + '/' + str(cbs_disk_quota) + ' ' + percentage(cbs_disk_usage, cbs_disk_quota), \
+          str(cbs_volume_usage), str(maas_alarms) + '/' + str(maas_alarm_quota) + ' ' + percentage(maas_alarms, maas_alarm_quota), \
+          str(maas_checks) + '/' + str(maas_check_quota) + ' ' + percentage(maas_checks, maas_check_quota)])
 
 
 print x

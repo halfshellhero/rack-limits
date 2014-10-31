@@ -17,9 +17,11 @@ def get_compute_limits(region):
 
 def get_cbs_limits(region):
     """ Returns a dictionary containing the absolute limits in desired region """
-    cbs = eval("%s" % 'ctx.' + region + '.volume.client')
-    limits_dict = cbs.get_limits()
-    return limits_dict
+    headers = {'Content-Type': 'application/json'}
+    token = ctx.auth_token
+    url = 'https://' + region.lower() + '.blockstorage.api.rackspacecloud.com/v1/' + args.account + '/os-quota-sets/' + args.account
+    limit_req = requests.get(url, headers={'X-Auth-Token': token })
+    return limit_req.json()
 
 def get_cbs_usage(region):
     """ Returns the total usage for CBS in desired region """
@@ -61,31 +63,6 @@ def get_clb_limits(region):
     limit_req = requests.get(url, headers={'X-Auth-Token': token })
     return limit_req.json()
 
-#def get_mon_alarm_usage(username, key):
-#    """ Returns the number (integer) of alarms for the account """
-#    Cls = get_driver(Provider.RACKSPACE)
-#    driver = Cls(username, key)
-#    overview = driver.ex_views_overview()
-#    total_alarms = 0
-#    x = 0
-#    while x < len(overview):
-#        total_alarms = total_alarms + len(overview[x]['alarms'])
-#        x = x + 1
-#    return total_alarms
-#
-#
-#def get_mon_check_usage(username, key):
-#    """ Returns the number (integer) of checks for the account """
-#    Cls = get_driver(Provider.RACKSPACE)
-#    driver = Cls(username, key)
-#    overview = driver.ex_views_overview()
-#    total_checks = 0
-#    x = 0
-#    while x < len(overview):
-#        total_checks = total_checks + len(overview[x]['checks'])
-#        x = x + 1
-#    return total_checks
-
 def get_mon_usage(username, key):
     """ Returns the number (integer) of checks and alarms for the account """
     Cls = get_driver(Provider.RACKSPACE)
@@ -117,11 +94,9 @@ def percentage(used, quota):
 
 #Gather required command line arguments
 parse = argparse.ArgumentParser(description='Report on resource usage')
-#parse.add_argument('-r', '--region', required=True, help='Region: dfw, ord, iad, hkg, syd, lon')
 parse.add_argument('-u', '--username', required=True, help='API Username')
 parse.add_argument('-a', '--account', required=True, help='Account number')
 args = parse.parse_args()
-#region = args.region.upper()
 key = getpass.getpass(prompt='API Key: ')
 
 #Setting Credentials
@@ -135,29 +110,23 @@ ctx.authenticate()
 
 #Printing formatted output
 output = PrettyTable(["Region", "Compute Ram (GB)", "Compute Instance", "Networks", "LBaaS", "CBS Disk (GB)", "CBS Volume"])
-#x.align["Region"] = "l" # Left align city names
 output.padding_width = 1
 
 region_list = ['DFW', 'IAD', 'ORD', 'SYD', 'HKG']
-cbs_quota = {'DFW': 112000, 'IAD': 81920, 'ORD': 71680, 'SYD': 10240, 'HKG': 10240, 'LON': 40960}
 count = 0
 
 while count < len(region_list):
     #Obtaining and setting up vars for absolute limits
     compute_limits = get_compute_limits(region_list[count])
-#    cbs_limits = get_cbs_limits(region_list[count])
+    cbs_limits = get_cbs_limits(region_list[count])
     clb_limits = get_clb_limits(region_list[count])
     
     ram_quota = compute_limits['absolute']['maxTotalRAMSize']
     instance_quota = compute_limits['absolute']['maxTotalInstances']
     networks_quota = compute_limits['absolute']['maxTotalPrivateNetworks']
     
-#    cbs_disk_quota =  cbs_limits['limits']['absolute']['maxTotalVolumeGigabytes']
-    cbs_disk_quota = cbs_quota[region_list[count]] 
+    cbs_disk_quota = cbs_limits['quota_set']['gigabytes_SSD'] 
 
-#    this isn't a thing anymore. i can likely remove this function moving forward
-#    cbs_volume_quota =  cbs_limits['limits']['absolute']['maxTotalVolumes']
-    
     clb_quota = clb_limits['absolute'][1]['value']
 
     
