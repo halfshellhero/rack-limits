@@ -27,13 +27,20 @@ def get_cbs_usage(region):
     """ Returns the total usage for CBS in desired region """
     cbs = eval("%s" % 'ctx.' + region + '.volume.client')
     all_cbs = cbs.list()
-    total_disk = 0
+    #total_disk = 0
+    total_ssd = 0
+    total_sata = 0
     total_volumes = len(all_cbs)
     x = 0
     while (x < len(all_cbs)):
-        total_disk = total_disk + all_cbs[x].size
+        if all_cbs[x].volume_type == 'SATA':
+            total_sata = total_sata + all_cbs[x].size
+        elif all_cbs[x].volume_type == 'SSD':
+            total_ssd = total_ssd + all_cbs[x].size
+        else:
+            raise Exception("could not determine CBS volume type")
         x = x + 1
-    return total_disk,total_volumes
+    return total_ssd,total_sata,total_volumes
 
 def get_clb_usage(region):
     """ Returns a list of all LBaaS instances in desired region """
@@ -109,7 +116,7 @@ ctx.set_credentials(args.username, password=key)
 ctx.authenticate()
 
 #Printing formatted output
-output = PrettyTable(["Region", "Compute Ram (GB)", "Compute Instance", "Networks", "LBaaS", "CBS Disk (GB)", "CBS Volume"])
+output = PrettyTable(["Region", "Compute Ram (GB)", "Compute Instance", "Networks", "LBaaS", "CBS SSD Disk (GB)", "CBS SATA Disk (GB)", "CBS Volume"])
 output.padding_width = 1
 
 region_list = ['DFW', 'IAD', 'ORD', 'SYD', 'HKG']
@@ -125,7 +132,8 @@ while count < len(region_list):
     instance_quota = compute_limits['absolute']['maxTotalInstances']
     networks_quota = compute_limits['absolute']['maxTotalPrivateNetworks']
     
-    cbs_disk_quota = cbs_limits['quota_set']['gigabytes_SSD'] 
+    cbs_ssd_quota = cbs_limits['quota_set']['gigabytes_SSD'] 
+    cbs_sata_quota = cbs_limits['quota_set']['gigabytes_SATA'] 
 
     clb_quota = clb_limits['absolute'][1]['value']
 
@@ -136,8 +144,9 @@ while count < len(region_list):
     networks_usage = compute_limits['absolute']['totalPrivateNetworksUsed']
    
     cbs_usage = get_cbs_usage(region_list[count]) 
-    cbs_disk_usage = cbs_usage[0]
-    cbs_volume_usage = cbs_usage[1]
+    cbs_ssd_usage = cbs_usage[0]
+    cbs_sata_usage = cbs_usage[1]
+    cbs_volume_usage = cbs_usage[2]
     
     clb_usage = len(get_clb_usage(region_list[count]))
 
@@ -147,9 +156,10 @@ while count < len(region_list):
     percentage(instance_usage, instance_quota), str(networks_usage) \
     + '/' + str(networks_quota) + ' ' + percentage(networks_usage, \
     networks_quota), str(clb_usage) + '/' + str(clb_quota) + ' ' + \
-    percentage(clb_usage, clb_quota), str(cbs_disk_usage) + '/' + \
-    str(cbs_disk_quota) + ' ' + percentage(cbs_disk_usage, cbs_disk_quota)\
-    , str(cbs_volume_usage)])
+    percentage(clb_usage, clb_quota), str(cbs_ssd_usage) + '/' + \
+    str(cbs_ssd_quota) + ' ' + percentage(cbs_ssd_usage, cbs_ssd_quota)\
+    , str(cbs_sata_usage) + '/' + str(cbs_sata_quota) + ' ' + \
+    percentage(cbs_sata_usage, cbs_sata_quota), str(cbs_volume_usage)])
 
     count = count + 1
 
